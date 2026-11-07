@@ -106,32 +106,62 @@ Tidak diuji: Belum mulai → Terkirim langsung (tidak ada tombolnya di UI) dan T
 
 ## 7. Panduan Eksekusi (tanpa Firebase Console dan tanpa melihat database)
 
-Semua pemeriksaan data lewat **aplikasi dan API**. Alat yang dipakai: browser (DevTools tab Network untuk TC-07 dan TC-12), `curl`/Postman, dan file `.env.local`.
+Semua pemeriksaan data lewat **aplikasi dan API**, memakai **Console browser** (DevTools, tab Console) dan tab Network. Tidak memakai Firebase Console dan tidak memakai `curl`. Nilai `API_KEY` dan `PROJECT_ID` dibaca dari `.env.local` (`NEXT_PUBLIC_FIREBASE_API_KEY` dan `NEXT_PUBLIC_FIREBASE_PROJECT_ID`).
 
-**Persiapan satu kali.** Ambil `API_KEY` dan `PROJECT_ID` dari `.env.local` (`NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`).
+**Cara pakai.** Buka `http://localhost:3000`, tekan **F12**, pilih tab **Console**. Jika Chrome menolak menempel, ketik `allow pasting` lalu Enter. Tempel blok di bawah satu per satu. Variabel dari blok 1 dipakai oleh blok berikutnya, selama tab tidak ditutup atau di-refresh.
 
-1. **Ambil UID dan token** tiap akun uji (siswa1, siswa2). Respons berisi `localId` (= UID) dan `idToken`:
-```bash
-curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"siswa@lernova.com","password":"<password uji>","returnSecureToken":true}'
+**Blok 1. Login dan ambil UID** (TC-01, 02, 03, 06, serta mengambil UID untuk TC-05, 08). Ganti `ISI_...`, dan ganti email/password sesuai akun yang diuji:
+```js
+const API_KEY = "ISI_API_KEY";
+const PROJECT_ID = "ISI_PROJECT_ID";
+async function login(email, password) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({email, password, returnSecureToken: true})
+  });
+  const d = await r.json();
+  console.log(email, "UID:", d.localId, "error:", d.error && d.error.message);
+  return d;
+}
+let s1 = await login("siswa@lernova.com", "<password uji>");
 ```
-   Jika email/password salah atau akun tidak ada, respons berisi `error` (dipakai di TC-01).
-2. **Baca dokumen users** (TC-02 dan TC-06):
-```bash
-curl -s "https://firestore.googleapis.com/v1/projects/PROJECT_ID/databases/(default)/documents/users/UID" \
-  -H "Authorization: Bearer ID_TOKEN"
+Untuk siswa2: `let s2 = await login("siswa2@lernova.test", "<password uji>");`. Jika email/password salah atau akun tidak ada, hasilnya `error` (dipakai di TC-01).
+
+**Blok 2. Baca dokumen users** (TC-02, TC-06):
+```js
+const g = await fetch(`https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${s1.localId}`,
+  {headers: {Authorization: "Bearer " + s1.idToken}});
+console.log(g.status, await g.json());
 ```
-3. **Coba ubah role** (TC-06), harapannya ditolak (403):
-```bash
-curl -s -X PATCH "https://firestore.googleapis.com/v1/projects/PROJECT_ID/databases/(default)/documents/users/UID?updateMask.fieldPaths=role" \
-  -H "Authorization: Bearer ID_TOKEN" -H "Content-Type: application/json" \
-  -d '{"fields":{"role":{"stringValue":"admin"}}}'
+
+**Blok 3. Coba ubah role** (TC-06), harapannya ditolak (403):
+```js
+const p = await fetch(`https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users/${s1.localId}?updateMask.fieldPaths=role`, {
+  method: "PATCH",
+  headers: {Authorization: "Bearer " + s1.idToken, "Content-Type": "application/json"},
+  body: JSON.stringify({fields: {role: {stringValue: "admin"}}})
+});
+console.log(p.status, await p.json());
 ```
-4. **Hitung hasil tes** seorang siswa (TC-05, 08, 10, 11, 12). Hitung item pada `data` di respons, sebelum dan sesudah aksi:
+
+**Blok 4. Kirim data tidak valid** (TC-05), harapannya 400. Jalankan dari tab `localhost:3000`:
+```js
+const t = await fetch("/api/test-results", {
+  method: "POST", headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({userId: s1.localId,
+    counts: {visual: 15, auditori: 0, kinestetik: 0},
+    percentages: {visual: 150, auditori: 0, kinestetik: 0},
+    dominantStyle: "visual"})
+});
+console.log(t.status, await t.json());
 ```
-GET http://localhost:3000/api/test-results?userId=UID
+
+**Blok 5. Hitung hasil tes** seorang siswa (TC-05, 08, 10, 11, 12), sebelum dan sesudah aksi. Ganti `s1` dengan `s2` bila perlu:
+```js
+const c = await (await fetch("/api/test-results?userId=" + s1.localId)).json();
+console.log("jumlah hasil:", c.data.length);
 ```
+Alternatif tanpa Console: buka `http://localhost:3000/api/test-results?userId=UID` di address bar (tanpa tanda `<` `>`) dan hitung item di `data`.
 
 **Aturan lain:**
 - Jalankan **PRE-01** dulu: `npm run build` dan `npm run lint`, simpan log ke `evidence/PRE-01_build_log.txt`. Jika build gagal, uji lain tetap bisa jalan dengan `npm run dev`.
