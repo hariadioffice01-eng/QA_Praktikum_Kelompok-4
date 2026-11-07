@@ -25,7 +25,7 @@ Anggota:
 |---|---|
 | Registrasi dan login (validasi input, pesan error, pengalihan role) | REQ-01, REQ-02 |
 | Pembatasan akses halaman `/tes` dan dashboard berdasarkan role | REQ-03, R-01 |
-| Tes 8 soal: wajib lengkap, pengacakan opsi, perhitungan persentase, gaya dominan, kasus seri | REQ-04, REQ-05, R-05 |
+| Tes 15 soal: wajib lengkap, pengacakan opsi, perhitungan persentase, gaya dominan, kasus seri | REQ-04, REQ-05, R-05 |
 | Penyimpanan dan tampilan hasil di `/hasil`, urutan riwayat | REQ-06 |
 | API `/api/test-results` (POST/GET), termasuk uji negatif tanpa autentikasi | REQ-07, R-02 |
 | Endpoint `/api/seed` dan `/api/debug/*` (keterbukaan akses) | REQ-08, R-03, R-06 |
@@ -50,7 +50,7 @@ Anggota:
 | 1 | **R-04** build gagal (skor 25, sudah terbukti) | Build verification (smoke) | Non-fungsional: build/lint | Jalankan `npm ci`, `npm run build`, `npm run lint`; catat output. | Build lulus tanpa *module not found*. |
 | 2 | **R-02** API tanpa autentikasi dan validasi (16) | Integration (API ↔ Firestore) | Security (access control), negatif, boundary | Panggil `POST`/`GET /api/test-results` dengan `curl` tanpa token, dengan `userId` milik pengguna lain, dan dengan persentase di luar 0–100. | AC-07 (ditolak 401/403), AC-09 (ditolak 400). |
 | 3 | **R-01** eskalasi role (15) | Integration (klien ↔ Firestore rules) + System | Security, negatif | Dengan akun siswa uji, coba ubah `role` pada `users/{uid}` lewat SDK/konsol; coba akses `/dashboard/admin`. | Perubahan role ditolak; akses admin ditolak. |
-| 4 | **R-05** gaya dominan saat seri (12) | Unit/komponen logika + System | Fungsional, boundary | Equivalence partitioning dan boundary pada jumlah jawaban per kategori (0–8); decision table untuk kasus seri. | AC-05, AC-06. |
+| 4 | **R-05** gaya dominan saat seri (12) | Unit/komponen logika + System | Fungsional, boundary | Equivalence partitioning dan boundary pada jumlah jawaban per kategori (0–15); decision table untuk kasus seri. | AC-05, AC-06. |
 | 5 | **R-03, R-06, R-07** (12) | Integration + System | Security, konsistensi konfigurasi | Panggil endpoint debug/seed tanpa login; bandingkan field rules dengan field yang ditulis kode. | AC-08. |
 | 6 | **R-09** jawaban hilang (9) | System | Reliability, state transition | Simulasi gagal kirim (offline/Network throttle) dan muat ulang di tengah tes. | Perilaku sesuai state diagram tes. |
 | 7 | **R-08** log berisi PII (6) | System | Security (inspeksi) | Periksa console browser saat daftar/login. | Tidak ada email/role pada log produksi. |
@@ -65,7 +65,7 @@ Anggota:
 
 **Test type:** fungsional (positif, negatif, boundary), security (access control), reliability (kegagalan jaringan), dan smoke/regression (build). Usability hanya diamati secara informal.
 
-**Empat teknik black-box (dirinci pada Tahap 6):** equivalence partitioning (input form dan jumlah jawaban), boundary value analysis (panjang password 5/6, jumlah soal terjawab 7/8), decision table (role × halaman, kombinasi seri), state transition (status tes: belum mulai → berjalan → terkirim → tersimpan/gagal).
+**Empat teknik black-box (dirinci pada Tahap 6):** equivalence partitioning (input form dan jumlah jawaban), boundary value analysis (panjang password 5/6, jumlah soal terjawab 14/15), decision table (role × halaman, kombinasi seri), state transition (status tes: belum mulai → berjalan → terkirim → tersimpan/gagal).
 
 **Alur strategi pengujian:**
 
@@ -109,8 +109,8 @@ Versi 0.1.0, arsip `Lernova_Web.zip` diterima 7 November 2026 (bukan repository 
 | Data | Isi |
 |---|---|
 | Akun uji | `siswa@lernova.com`, `guru@lernova.com`, `admin@lernova.com` (dibuat lewat `/quick-setup` di project uji), ditambah akun siswa kedua (`siswa2@lernova.test`) untuk uji isolasi data |
-| Soal | 8 soal di koleksi `pertanyaan`, masing-masing 3 opsi, diisi dari `lib/mockData.ts` / `lib/seed-data.ts` pada project uji kelompok. |
-| Pola jawaban | Set tetap (8 soal): 4-2-2 (dominan tunggal), 8-0-0 (ekstrem), 3-3-2 (seri), 0 terjawab, 7 terjawab, 8 terjawab |
+| Soal | 15 soal di koleksi `pertanyaan` pada project uji kelompok, masing-masing 3 opsi (terlihat pada respons `/api/seed`). Kategori tiap opsi dirinci pada Lampiran A di `docs/06_Black_Box_Design.md`. |
+| Pola jawaban | Set tetap (15 soal): 9-3-3 (dominan tunggal), 15-0-0 (ekstrem), 6-6-3 (seri), 0 terjawab, 14 terjawab, 15 terjawab |
 | Input form | Password 5, 6, dan 7 karakter; email valid/tidak valid; kolom kosong; konfirmasi password berbeda |
 | Rahasia | Password dan token **tidak** ditampilkan pada video atau evidence |
 
@@ -190,7 +190,7 @@ Priority (urutan perbaikan) mengikuti dampak ke tujuan bisnis dan risiko dari Ta
 - Lernova Web adalah aplikasi milik pihak lain yang digunakan atas izin pemiliknya (bukti izin disimpan kelompok). Kode aplikasi tidak diubah. Perbaikan, bila diperlukan untuk retest, dilakukan pada salinan milik kelompok.
 - Security rules produksi milik pemilik aplikasi tidak diperiksa. Risiko R-01, R-06, dan R-07 diuji pada project Firebase kelompok dengan rules rancangan di `lib/firestore-schema.md`, sehingga kesimpulannya hanya berlaku untuk rules tersebut.
 - Halaman admin dan analisis guru berada di luar scope dan tidak dinilai pada audit akhir (dicatat sebagai blind spot).
-- Kelompok memutuskan menguji dengan **8 soal** sesuai data awal aplikasi (`lib/mockData.ts`). README menyebut 10 soal, dan selisih ini dicatat sebagai temuan dokumentasi (severity Low) pada Tahap 7.
+- Kelompok memutuskan menguji dengan **15 soal** sesuai data pada project uji (respons `/api/seed`). README menyebut 10 soal dan `lib/mockData.ts` memuat 8 soal, dan selisih ini dicatat sebagai temuan dokumentasi (severity Low) pada Tahap 7.
 - Aturan hasil seri pada REQ-05 merupakan usulan kelompok. Jika pemilik aplikasi menetapkan aturan lain, test case AC-06 disesuaikan.
 
 ## 6. Kesimpulan Tahap 4
