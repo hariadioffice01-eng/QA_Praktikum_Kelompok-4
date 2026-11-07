@@ -19,3 +19,5 @@ Tahapan 5-6 <br>
 
 
 Tahapan 7-8 <br>
+
+Project Lernova dimiliki oleh Muhammad Adzkia Madani <br>
