@@ -19,3 +19,5 @@ Tahapan 7-8 <br>
 Muhammad Adzkia Madani <br>
 
 Project Lernova dimiliki oleh Muhammad Adzkia Madani <br>
+
+PPT oleh Alim Kurniadi <br>
